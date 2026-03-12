@@ -5,7 +5,7 @@ Comment l'équation entre la maîtrise des coûts (**FinOps**), l'urgence écolo
 
 ## Équipe
 * **Serge WEMBE II-ESSOUMBA**
-* **Cheik ANAIS** 
+* **Cheik LAWANI** 
 * **Javier LADINO**
 
 ## Stack Technique
