@@ -62,16 +62,16 @@ Voici l'organisation recommandée pour votre dépôt Git afin d'assurer la pére
 ```
 ├── .github/                # Workflows pour automatiser certaines tâches de doc
 ├── config/                 # Configurations techniques
-│   ├── make_scenario.json  # Export du blueprint [Make.com](http://make.com/)
+│   ├── make_scenario.json  # Export du blueprint Make.com
 │   ├── feedly_opml.xml     # Liste des flux RSS exportée
-│   └── alerts_setup.md     # Liste des requêtes Google Alerts paramétrées [cite: 83]
+│   └── alerts_setup.md     # Liste des requêtes Google Alerts paramétrées
 ├── docs/                   # Méthodologie et cadre stratégique
-│   ├── problematique.md   # Détails de la thématique [cite: 8]
-│   ├── sources.md         # Liste exhaustive des sites et experts suivis [cite: 105, 128]
-│   └── kpi_metrics.md      # Indicateurs de performance de la veille [cite: 224]
+│   ├── problematique.md   # Détails de la thématique
+│   ├── sources.md         # Liste exhaustive des sites et experts suivis
+│   └── kpi_metrics.md      # Indicateurs de performance de la veille
 ├── templates/              # Modèles de documents
-│   ├── monthly_report.md   # Template de synthèse mensuelle [cite: 200]
-│   └── decision_matrix.md  # Matrice de décision Cloud vs On-Prem [cite: 204]
+│   ├── monthly_report.md   # Template de synthèse mensuelle
+│   └── decision_matrix.md  # Matrice de décision Cloud vs On-Prem
 ├── reports/                # Archives des rapports produits (par mois)
 │   └── 2026/
 │       └── 03-mars-report.md
@@ -87,8 +87,8 @@ Pour initialiser ce système sur votre machine et le lier à GitHub :
 
 ````
 # Créer le dossier du projet
-mkdir veille-it-groupe3
-cd veille-it-groupe3
+mkdir veille_techno_2026
+cd veille_techno_2026
 
 # Initialiser Git
 git init

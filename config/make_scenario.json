@@ -1,0 +1,9 @@
+{
+  "name": "Cloud Watch Automation Pipeline",
+  "nodes": [
+    { "type": "RSS:WatchFeed", "source": "Feedly Shared Board" },
+    { "type": "Filter:Keyword", "criteria": "FinOps OR GreenIT OR Sovereignty" },
+    { "type": "Notion:CreatePage", "database_id": "Veille_2026" },
+    { "type": "Slack:PostMessage", "channel": "#veille-critique" }
+  ]
+}
