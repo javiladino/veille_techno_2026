@@ -4,7 +4,7 @@
 Comment l'équation entre la maîtrise des coûts (**FinOps**), l'urgence écologique (**Green IT**) et la **Souveraineté des données** redessine-t-elle les frontières entre le Cloud, le On-Premise et l'Hybride pour les années à venir ?.
 
 ## Équipe
-* **Serge WEMBE II**
+* **Serge WEMBE II-ESSOUMBA**
 * **Cheik ANAIS** 
 * **Javier LADINO**
 
