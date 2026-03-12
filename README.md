@@ -1,22 +1,23 @@
 # Système de Veille Stratégique : Cloud, On-Premise & Hybride (2026)
 
-## 🎯 Problématique
+## Problématique
 Comment l'équation entre la maîtrise des coûts (**FinOps**), l'urgence écologique (**Green IT**) et la **Souveraineté des données** redessine-t-elle les frontières entre le Cloud, le On-Premise et l'Hybride pour les années à venir ?.
 
-## 👥 Équipe (Groupe N°3)
+## Équipe
 * **Serge WEMBE II**
 * **Cheik ANAIS** 
 * **Javier LADINO**
 
-## 🛠️ Stack Technique
+## Stack Technique
 * **Collecte :** Feedly, Google Alerts, Talkwalker.
 * **Automatisation :** Make.com / Zapier.
 * **Stockage & Analyse :** Notion, Google Drive.
 * **Communication :** Slack, Microsoft Teams.
 
-## 📂 Structure du Dépôt
+## Structure du Dépôt
 Consultez le dossier `docs/` pour la méthodologie et `config/` pour les paramètres d'automatisation.
 
+[Fiche de suivi Dossier Veille](https://docs.google.com/document/d/15UXsffiuzuDaxjrri_YVXkRCRfsJbNPs/edit?usp=sharing&ouid=115089839475756212140&rtpof=true&sd=true)
 ___
 
 ## Projet : Système de Veille Stratégique IT (FinOps, Green IT & Souveraineté)
