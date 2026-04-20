@@ -1,0 +1,461 @@
+{
+  "name": "Veille EPSI 2026 — Pipeline v2 (MiniFlux + Google Drive + Slack)",
+  "version": "2.0",
+  "description": "Scénario Make.com pour la collecte automatisée via MiniFlux, stockage Google Drive et distribution Slack avec production podcast NotebookLM",
+  "flow": [
+    {
+      "id": 1,
+      "type": "trigger",
+      "module": "http:ActionSendData",
+      "label": "Polling MiniFlux API — Nouveaux articles",
+      "parameters": {
+        "url": "{{env.MINIFLUX_URL}}/v1/entries?status=unread&limit=50&order=published_at&direction=desc",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "X-Auth-Token",
+            "value": "{{env.MINIFLUX_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "schedule": {
+          "interval": 120,
+          "unit": "minutes"
+        }
+      },
+      "output": "miniflux_response"
+    },
+    {
+      "id": 2,
+      "type": "iterator",
+      "module": "builtin:BasicIterator",
+      "label": "Itérer sur les articles récupérés",
+      "parameters": {
+        "array": "{{1.data.entries}}"
+      },
+      "output": "current_article"
+    },
+    {
+      "id": 3,
+      "type": "filter",
+      "module": "builtin:BasicFilter",
+      "label": "Filtre mots-clés thématiques",
+      "parameters": {
+        "condition": {
+          "operator": "OR",
+          "rules": [
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "FinOps",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "Green IT",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "GreenIT",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "souveraineté",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "sovereignty",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "cloud repatriation",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "rapatriement",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "TCO",
+              "case_insensitive": false
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "CAPEX",
+              "case_insensitive": false
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "RGPD",
+              "case_insensitive": false
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "Cloud Act",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "AI Act",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "numérique responsable",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "empreinte carbone",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "on-premise",
+              "case_insensitive": true
+            },
+            {
+              "field": "{{2.title}}",
+              "operator": "contains",
+              "value": "hybride cloud",
+              "case_insensitive": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "function",
+      "module": "builtin:SetVariable",
+      "label": "Calcul score de pertinence",
+      "parameters": {
+        "variables": [
+          {
+            "name": "score",
+            "value": "{{if(contains(lower(2.title), 'finops'), 2, 0) + if(contains(lower(2.title), 'green it'), 2, 0) + if(contains(lower(2.title), 'souveraineté'), 2, 0) + if(contains(lower(2.title), 'rgpd'), 1, 0) + if(contains(lower(2.title), 'cloud act'), 1, 0) + if(contains(lower(2.title), 'repatriation'), 2, 0)}}"
+          },
+          {
+            "name": "thematique",
+            "value": "{{if(contains(lower(2.title), 'finops'), 'FinOps', if(contains(lower(2.title), 'green'), 'GreenIT', if(contains(lower(2.title), 'souveraineté'), 'Souveraineté', 'Général')))}}"
+          },
+          {
+            "name": "date_collecte",
+            "value": "{{formatDate(now, 'YYYY-MM-DD HH:mm')}}"
+          },
+          {
+            "name": "filename",
+            "value": "article_{{lower(replace(4.thematique, ' ', '_'))}}_{{formatDate(now, 'YYYYMMDD_HHmm')}}.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": "router",
+      "module": "builtin:Router",
+      "label": "Routeur — Score de pertinence",
+      "routes": [
+        {
+          "id": "route_critique",
+          "label": "Article Critique (score ≥ 8)",
+          "filter": {
+            "field": "{{4.score}}",
+            "operator": "greater_than_or_equal",
+            "value": 8
+          }
+        },
+        {
+          "id": "route_standard",
+          "label": "Article Standard (tous)",
+          "filter": {
+            "field": "{{4.score}}",
+            "operator": "greater_than",
+            "value": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "route": "route_critique",
+      "type": "action",
+      "module": "slack:CreateMessage",
+      "label": "Slack — Alerte critique #veille-critique",
+      "parameters": {
+        "channel": "#veille-critique",
+        "text": "",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": ":rotating_light: VEILLE CRITIQUE — {{4.thematique}}"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*{{2.title}}*\n\n:newspaper: Source : {{2.feed.title}}\n:label: Tags : #{{replace(4.thematique, ' ', '')}} #VeilleTechno\n:calendar: {{formatDate(2.published_at, 'DD MMMM YYYY')}}\n\n> {{truncate(2.content, 300)}}"
+            }
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": ":link: Lire l'article"
+                },
+                "url": "{{2.url}}"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Score pertinence : {{4.score}}/10 | Collecté le {{4.date_collecte}} | Veille EPSI 2026"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "route": "route_standard",
+      "type": "action",
+      "module": "googledrive:UploadFile",
+      "label": "Google Drive — Sauvegarde article /Raw/",
+      "parameters": {
+        "folderId": "{{env.GDRIVE_RAW_FOLDER_ID}}",
+        "fileName": "{{4.filename}}",
+        "content": "---\ndate: {{formatDate(2.published_at, 'YYYY-MM-DD')}}\ndate_collecte: {{4.date_collecte}}\nsource: {{2.feed.title}}\ntitle: \"{{replace(2.title, '\"', \"'\")}}\"\nurl: {{2.url}}\ntags: [{{4.thematique}}]\nscore_pertinence: {{4.score}}/10\nthematique: {{4.thematique}}\nstatut: nouveau\n---\n\n## {{2.title}}\n\n**Source** : {{2.feed.title}}  \n**Date** : {{formatDate(2.published_at, 'DD MMMM YYYY')}}  \n**URL** : {{2.url}}  \n**Score de pertinence** : {{4.score}}/10  \n\n## Extrait\n\n{{2.content}}\n\n## Métadonnées\n\n- Collecté le : {{4.date_collecte}}\n- Thématique : {{4.thematique}}\n- Flux RSS : {{2.feed.feed_url}}\n",
+        "mimeType": "text/markdown"
+      }
+    },
+    {
+      "id": 8,
+      "route": "route_standard",
+      "type": "action",
+      "module": "googledrive:UpdateSpreadsheet",
+      "label": "Google Sheets — Mise à jour tableau de suivi",
+      "parameters": {
+        "spreadsheetId": "{{env.GSHEET_TRACKING_ID}}",
+        "sheetName": "Articles",
+        "row": [
+          "{{formatDate(2.published_at, 'YYYY-MM-DD')}}",
+          "{{4.date_collecte}}",
+          "{{2.title}}",
+          "{{2.feed.title}}",
+          "{{2.url}}",
+          "{{4.thematique}}",
+          "{{4.score}}",
+          "nouveau",
+          "{{7.id}}"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "trigger",
+      "module": "builtin:ScheduledTrigger",
+      "label": "Déclencheur — Digest hebdomadaire (Lundi 08h00)",
+      "parameters": {
+        "schedule": {
+          "type": "weekly",
+          "day": "monday",
+          "time": "08:00",
+          "timezone": "Europe/Paris"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "parent": 9,
+      "type": "action",
+      "module": "googledrive:ListFiles",
+      "label": "Google Drive — Lire articles de la semaine",
+      "parameters": {
+        "folderId": "{{env.GDRIVE_RAW_FOLDER_ID}}",
+        "query": "modifiedTime > '{{formatDate(addDays(now, -7), 'YYYY-MM-DDT00:00:00')}}'"
+      }
+    },
+    {
+      "id": 11,
+      "parent": 9,
+      "type": "action",
+      "module": "googledrive:UploadFile",
+      "label": "Google Drive — Générer digest hebdomadaire /Digest/",
+      "parameters": {
+        "folderId": "{{env.GDRIVE_DIGEST_FOLDER_ID}}",
+        "fileName": "digest_semaine_{{formatDate(now, 'WW')}}_{{formatDate(now, 'YYYY')}}.md",
+        "content": "# Digest Veille Technologique — Semaine {{formatDate(now, 'WW')}} ({{formatDate(addDays(now, -7), 'DD/MM')}} - {{formatDate(now, 'DD/MM/YYYY')}})\n\n> Généré automatiquement le {{formatDate(now, 'DD MMMM YYYY à HH:mm')}}\n\n## Statistiques de la semaine\n\n- Articles collectés : {{length(10.files)}}\n- Alertes critiques envoyées : [calculé]\n- Thématiques couvertes : FinOps, Green IT, Souveraineté\n\n## Top articles de la semaine\n\n[Articles automatiquement sélectionnés par score de pertinence]\n\n## Synthèse FinOps\n\n[Résumé des actualités FinOps de la semaine]\n\n## Synthèse Green IT\n\n[Résumé des actualités Green IT de la semaine]\n\n## Synthèse Souveraineté des données\n\n[Résumé des actualités souveraineté de la semaine]\n\n## Tendance de la semaine\n\n[Article le plus impactant + recommandation équipe]\n\n---\n\n*Veille EPSI 2026 — Pipeline automatisé MiniFlux + Make.com*\n"
+      }
+    },
+    {
+      "id": 12,
+      "parent": 9,
+      "type": "action",
+      "module": "slack:CreateMessage",
+      "label": "Slack — Digest #veille-hebdo",
+      "parameters": {
+        "channel": "#veille-hebdo",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": ":bar_chart: DIGEST VEILLE — Semaine {{formatDate(now, 'WW')}} ({{formatDate(addDays(now, -7), 'DD/MM')}} - {{formatDate(now, 'DD/MM')}})"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Cette semaine dans la veille technologique EPSI :*\n\n:blue_circle: *FinOps* — [Titre article FinOps #1]\n:green_circle: *Green IT* — [Titre article GreenIT #1]\n:red_circle: *Souveraineté* — [Titre article Souveraineté #1]\n:cloud: *Hybride/Cloud* — [Titre article Cloud #1]\n:bulb: *Innovation* — [Titre article Innovation #1]"
+            }
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": ":file_folder: Digest complet"
+                },
+                "url": "{{11.webViewLink}}"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "_Généré automatiquement par le système de veille EPSI 2026_"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": "trigger",
+      "module": "builtin:ScheduledTrigger",
+      "label": "Déclencheur — Production podcast (Vendredi 17h00)",
+      "parameters": {
+        "schedule": {
+          "type": "weekly",
+          "day": "friday",
+          "time": "17:00",
+          "timezone": "Europe/Paris"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "parent": 13,
+      "type": "action",
+      "module": "slack:CreateMessage",
+      "label": "Slack — Notification podcast #veille-podcast",
+      "parameters": {
+        "channel": "#veille-podcast",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": ":microphone: PODCAST VEILLE — Semaine {{formatDate(now, 'WW')}}"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": ":headphones: *Le podcast de veille technologique de la semaine est disponible !*\n\n:clock2: Durée estimée : 15-20 minutes\n:label: Thèmes : FinOps · Green IT · Souveraineté des données\n:robot_face: Généré par NotebookLM Audio Overview\n\n*Pour écouter le podcast :*\n1. Cliquez sur le lien Google Drive ci-dessous\n2. Ou accédez directement à NotebookLM"
+            }
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": ":file_folder: Accéder au podcast"
+                },
+                "url": "{{env.GDRIVE_PODCAST_FOLDER_URL}}"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "_Veille EPSI 2026 | Serge WEMBE · Cheik LAWANI · Javier LADINO_"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "environment_variables": {
+    "MINIFLUX_URL": "http://localhost:8080",
+    "MINIFLUX_API_KEY": "1c46f55b9e6012dde7297aa61434e38fb51bedd3b45738753cddb98619d89aa2",
+    "GDRIVE_RAW_FOLDER_ID": "1oK1OVxXZfaC_IAcvPRudlscakp42qLx4",
+    "GDRIVE_DIGEST_FOLDER_ID": "1a5C1bYJYrkZL_-DRtotnT7VHswkJerw2",
+    "GDRIVE_PODCAST_FOLDER_ID": "1s48VX-5tget1McU5oZLpv_atWHd9fri_",
+    "GDRIVE_PODCAST_FOLDER_URL": "https://drive.google.com/drive/folders/1s48VX-5tget1McU5oZLpv_atWHd9fri_",
+    "GSHEET_TRACKING_ID": "169OighSf_ePo3rNf8-LbMF0KUPgYUBKFV9nsOvQR64w",
+    "SLACK_WEBHOOK_URL": "https://app.slack.com/client/T03HZ9QF4GZ"
+  },
+  "connections_required": [
+    "MiniFlux API (HTTP module)",
+    "Google Drive",
+    "Google Sheets",
+    "Slack"
+  ],
+  "metadata": {
+    "created_by": "Veille EPSI 2026",
+    "created_at": "2026-04-18",
+    "version": "2.0",
+    "previous_version": "make_scenario.json (v1 — Feedly + Notion)",
+    "team": [
+      "Serge WEMBE II-ESSOUMBA",
+      "Cheik LAWANI",
+      "Javier LADINO"
+    ]
+  }
+}
