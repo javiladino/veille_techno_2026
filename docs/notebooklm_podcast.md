@@ -1,384 +1,345 @@
 # Production de podcast avec NotebookLM — Guide opérationnel
 
-> **Fonctionnalité** : Audio Overview automatisé  
-> **Outil** : Google NotebookLM  
-> **Objectif** : Générer un podcast hebdomadaire de synthèse de la veille technologique  
-> **Langue cible** : Français  
+> **Version** : POC v2 — opérationnel depuis mai 2026
+> **Outil** : Google NotebookLM (Audio Overview)
+> **Objectif** : Générer un podcast hebdomadaire de synthèse de la veille technologique
+> **Format de sortie** : `.m4a` (natif NotebookLM)
+> **Temps de production** : ~4 minutes (action humaine) + ~10 minutes (génération IA)
 
 ---
 
-## Qu'est-ce que NotebookLM Audio Overview ?
+## 1. Vue d'ensemble du processus
 
-**NotebookLM** est un outil d'IA de Google (basé sur Gemini) qui permet d'analyser des sources textuelles et de générer des contenus synthétiques. La fonctionnalité **Audio Overview** crée automatiquement un podcast en format conversation entre deux présentateurs IA à partir des sources fournies.
+```mermaid
+flowchart TD
+    subgraph AUTO["🤖 Automatique — n8n"]
+        WF2["Workflow 2\nDigest hebdomadaire\nLundi 08h00"]
+        GD_DIGEST["📁 Google Drive\n/02_Digest/\ndigest_semaine_XX.md"]
+        SL_HEBDO["💬 Slack\n#veille-hebdo\n+ instruction NotebookLM"]
+        WF2 -->|"Upload"| GD_DIGEST
+        WF2 -->|"Notification + action"| SL_HEBDO
+    end
 
-### Caractéristiques
+    subgraph MANUEL["👤 Semi-manuel — ~4 min"]
+        NB["🗒️ NotebookLM\nVeille EPSI 2026"]
+        ADD_SRC["Ajouter digest\ncomme source"]
+        GEN["Lancer\nAudio Overview"]
+        DL["Télécharger\nle fichier .m4a"]
+        UP["Déposer dans\nGoogle Drive\n/03_Podcast/"]
+        ADD_SRC --> GEN --> DL --> UP
+    end
+
+    subgraph AUTO2["🤖 Automatique — n8n"]
+        WF3["Workflow 3\nDétection fichier\n/03_Podcast/"]
+        SL_POD["💬 Slack\n#veille-podcast\nLien + nom fichier"]
+        WF3 -->|"Notification"| SL_POD
+    end
+
+    GD_DIGEST -->|"Source manuelle"| NB
+    NB --> ADD_SRC
+    UP -->|"Trigger Google Drive"| WF3
+
+    classDef auto fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef manual fill:#fff3e0,stroke:#f39c12,stroke-width:2px
+    classDef storage fill:#f3e5f5,stroke:#8e44ad,stroke-width:2px
+    classDef comms fill:#e0f2f1,stroke:#16a085,stroke-width:2px
+
+    class WF2,WF3 auto
+    class NB,ADD_SRC,GEN,DL,UP manual
+    class GD_DIGEST,UP storage
+    class SL_HEBDO,SL_POD comms
+```
+
+---
+
+## 2. Qu'est-ce que NotebookLM Audio Overview ?
+
+**NotebookLM** est un outil d'IA de Google (basé sur Gemini) qui analyse des sources textuelles et génère du contenu synthétique. La fonctionnalité **Audio Overview** crée automatiquement un podcast sous forme de conversation entre deux présentateurs IA à partir des sources fournies.
 
 | Aspect | Détail |
-|---|---|
-| **Format** | Conversation entre 2 présentateurs IA |
-| **Durée** | 10-25 minutes (selon volume des sources) |
-| **Qualité** | Naturelle, fluide, ton journalistique |
-| **Langue** | Multilingue (français pris en charge) |
+| --- | --- |
+| **Format de sortie** | `.m4a` (téléchargement direct) |
+| **Durée générée** | 10–25 minutes (selon le volume des sources) |
+| **Qualité** | Conversation naturelle, ton journalistique |
+| **Langue** | Multilingue — français pris en charge |
 | **Sources supportées** | PDF, Google Docs, texte brut, URLs, YouTube |
-| **Export** | Téléchargement MP3 direct |
 | **Coût** | Gratuit (compte Google requis) |
+| **Temps de génération** | ~10 minutes |
 
 ---
 
-## Configuration initiale du notebook
+## 3. Configuration initiale du notebook
 
 ### Étape 1 — Créer le notebook dédié
 
 1. Accéder à **notebooklm.google.com**
 2. Cliquer sur **"Nouveau notebook"**
 3. Nommer : `Veille Technologique EPSI 2026`
-4. Icône : Choisir une icône représentative
 
 ### Étape 2 — Ajouter les sources contextuelles permanentes
 
-Ces sources sont ajoutées une seule fois et restent dans le notebook pour donner le contexte permanent à l'IA.
+Ces sources sont ajoutées **une seule fois** et restent dans le notebook pour fournir le contexte permanent à l'IA.
 
 #### Source 1 — Contexte du projet
-
-Créer un document Google Docs `contexte_veille_epsi.md` avec le contenu :
 
 ```markdown
 # Contexte Projet — Veille Technologique EPSI 2026
 
 ## Équipe
 - Serge WEMBE II-ESSOUMBA
-- Cheik LAWANI  
+- Cheik LAWANI
 - Javier LADINO
 
 ## Problématique
-Comment l'équation entre maîtrise des coûts (FinOps), urgence écologique (Green IT) 
-et souveraineté des données reconfigure-t-elle les frontières entre Cloud, On-Premise 
+Comment l'équation entre maîtrise des coûts (FinOps), urgence écologique (Green IT)
+et souveraineté des données reconfigure-t-elle les frontières entre Cloud, On-Premise
 et Hybride pour les années à venir ?
 
 ## Thématiques surveillées
 
 ### FinOps
-Optimisation des coûts cloud, TCO (Total Cost of Ownership), CAPEX vs OPEX, 
+Optimisation des coûts cloud, TCO (Total Cost of Ownership), CAPEX vs OPEX,
 cloud repatriation (rapatriement vers on-premise), rightsizing.
 
 ### Green IT
-Empreinte carbone du numérique, PUE des datacenters, numérique responsable, 
+Empreinte carbone du numérique, PUE des datacenters, numérique responsable,
 efficacité énergétique, réglementations environnementales.
 
 ### Souveraineté des données
-RGPD, Cloud Act américain, AI Act européen, données personnelles, 
+RGPD, Cloud Act américain, AI Act européen, données personnelles,
 localisation des données, fournisseurs cloud européens.
-
-## Contexte 2026
-- Accélération du cloud repatriation en Europe
-- Directives européennes de souveraineté numérique
-- Pression réglementaire croissante sur les hyperscalers américains
-- Maturation de l'edge computing
 ```
 
 #### Source 2 — Glossaire technique
 
-Créer un document `glossaire_veille.md` avec les définitions clés :
-
 ```markdown
 # Glossaire Veille Technologique EPSI 2026
 
-**FinOps** : Pratique financière appliquée au cloud, visant à maximiser la valeur 
+**FinOps** : Pratique financière appliquée au cloud, visant à maximiser la valeur
 métier tout en contrôlant les coûts d'infrastructure.
 
-**Green IT** : Informatique verte, ensemble des pratiques visant à réduire l'impact 
+**Green IT** : Informatique verte, ensemble des pratiques visant à réduire l'impact
 environnemental des technologies numériques.
 
-**Cloud Repatriation** : Mouvement de migration inverse, depuis le cloud public 
-vers des infrastructures on-premise ou des clouds privés.
+**Cloud Repatriation** : Migration inverse depuis le cloud public vers des
+infrastructures on-premise ou des clouds privés.
 
-**TCO (Total Cost of Ownership)** : Coût total de possession, incluant CAPEX, OPEX, 
-maintenance, formation et coûts cachés.
+**TCO** : Total Cost of Ownership — coût total incluant CAPEX, OPEX, maintenance.
 
-**CAPEX** : Capital Expenditure, dépenses d'investissement (achat serveurs, licences).
+**CAPEX** : Capital Expenditure — dépenses d'investissement (serveurs, licences).
 
-**OPEX** : Operational Expenditure, dépenses opérationnelles (abonnements, consommation).
+**OPEX** : Operational Expenditure — dépenses opérationnelles (abonnements, usage).
 
-**Souveraineté numérique** : Capacité d'un état ou d'une organisation à contrôler 
+**Souveraineté numérique** : Capacité d'un état ou d'une organisation à contrôler
 ses données et ses systèmes informatiques.
 
-**RGPD** : Règlement Général sur la Protection des Données, réglementation européenne 
-sur la protection des données personnelles.
+**RGPD** : Règlement Général sur la Protection des Données.
 
-**Cloud Act** : Loi américaine permettant aux autorités américaines d'accéder aux 
+**Cloud Act** : Loi américaine permettant aux autorités américaines d'accéder aux
 données stockées par des entreprises américaines, même en Europe.
 
-**PUE (Power Usage Effectiveness)** : Ratio mesurant l'efficacité énergétique 
-d'un datacenter.
-
-**Edge Computing** : Traitement des données au plus près de la source (bordure du réseau), 
-réduisant la latence et la dépendance au cloud central.
+**PUE** : Power Usage Effectiveness — ratio d'efficacité énergétique d'un datacenter.
 ```
 
-### Étape 3 — Configurer le prompt système du notebook
+### Étape 3 — Configurer les instructions du notebook
 
 Dans NotebookLM, utiliser la fonctionnalité **"Instructions pour le notebook"** :
 
-```
-Tu es un assistant spécialisé en veille technologique pour une équipe d'étudiants 
-en Master EPSI (École Supérieure de l'Informatique). 
-
-Contexte : Nous surveillons les thématiques FinOps, Green IT et Souveraineté des 
-données pour analyser l'évolution des infrastructures Cloud, On-Premise et Hybrides.
+```text
+Tu es un assistant spécialisé en veille technologique pour une équipe d'étudiants
+en Master EPSI. Nous surveillons les thématiques FinOps, Green IT et Souveraineté
+des données.
 
 Pour l'Audio Overview hebdomadaire :
 - Adopte un ton professionnel mais accessible, adapté à des étudiants en Master
-- Privilégie le français
-- Structure : introduction (2 min), FinOps (4 min), Green IT (4 min), 
+- Génère en FRANÇAIS
+- Structure : introduction (2 min), FinOps (4 min), Green IT (4 min),
   Souveraineté (4 min), tendance de la semaine (3 min)
-- Cite les sources et les experts mentionnés dans les articles
+- Cite les sources et experts mentionnés dans les articles
 - Termine par une recommandation concrète pour l'équipe
 - Durée cible : 15-20 minutes
 ```
 
 ---
 
-## Workflow hebdomadaire de production
+## 4. Workflow hebdomadaire de production
 
-### Vue d'ensemble
+### Séquence temporelle
 
-```
-Vendredi 16h00 ──► Make.com génère le digest de la semaine
-        │
-        ▼
-Digest semaine XX sauvegardé dans Google Drive /Digest/
-        │
-        ▼
-Vendredi 16h15 ──► Upload manuel du digest dans NotebookLM
-        │            (ou automatisé via Google Drive API)
-        ▼
-NotebookLM traite les sources (2-5 minutes)
-        │
-        ▼
-Vendredi 16h20 ──► Lancer "Audio Overview" dans NotebookLM
-        │
-        ▼
-Génération du podcast (5-15 minutes de traitement)
-        │
-        ▼
-Vendredi 16h35-17h00 ──► Télécharger le MP3 généré
-        │
-        ▼
-Uploader dans Google Drive /Podcast/podcast_semaine_XX.mp3
-        │
-        ▼
-Vendredi 17h00 ──► Make.com envoie le lien Slack #veille-podcast
+```mermaid
+sequenceDiagram
+    participant N8N as n8n (automatique)
+    participant GD as Google Drive
+    participant NLM as NotebookLM
+    participant SL as Slack
+
+    Note over N8N,SL: 📅 Lundi 08h00 — Génération automatique du digest
+
+    N8N->>GD: Upload digest_semaine_XX.md → /02_Digest/
+    N8N->>SL: POST #veille-hebdo<br/>(+ instruction NotebookLM)
+
+    Note over GD,NLM: 📅 Vendredi — Production podcast (~4 min d'action humaine)
+
+    GD-->>NLM: Ajout manuel du digest comme source
+    NLM->>NLM: Génération Audio Overview (~10 min)
+    NLM-->>GD: Dépôt manuel .m4a → /03_Podcast/
+
+    Note over GD,SL: 🤖 Automatique — Détection par Workflow 3
+
+    GD->>N8N: Trigger (nouveau fichier .m4a détecté)
+    N8N->>SL: POST #veille-podcast<br/>(lien d'écoute direct)
 ```
 
-### Instructions détaillées
+### Instructions détaillées — Production en 4 étapes
 
-#### Ajout du digest comme source
+#### Étape A — Ouvrir le notebook
 
-1. Ouvrir le notebook `Veille Technologique EPSI 2026`
-2. Cliquer sur **"+ Ajouter une source"**
-3. Choisir **"Google Drive"** et sélectionner `digest_semaine_XX.md`
-4. Attendre le traitement (indicateur de chargement)
-5. Vérifier que la source apparaît dans le panneau sources
+1. Accéder à **notebooklm.google.com**
+2. Ouvrir le notebook `Veille Technologique EPSI 2026`
+3. Supprimer l'ancienne source digest (si présente) pour éviter les doublons
 
-#### Génération de l'Audio Overview
+#### Étape B — Ajouter le digest comme source
+
+1. Cliquer sur **"+ Ajouter une source"**
+2. Choisir **"Google Drive"**
+3. Sélectionner `digest_semaine_XX_AAAA-MM-JJ.md` dans `/02_Digest/`
+4. Attendre le traitement (indicateur de chargement ~1 min)
+
+#### Étape C — Générer l'Audio Overview
 
 1. Dans la section **"Studio"** (panneau droit)
 2. Cliquer sur **"Audio Overview"**
-3. Cliquer sur **"Personnaliser"** et saisir le prompt :
+3. *(Optionnel)* Cliquer sur **"Personnaliser"** et saisir le prompt :
 
-```
-Génère un podcast de synthèse de veille technologique en FRANÇAIS.
-Thèmes de la semaine : FinOps, Green IT, Souveraineté des données.
-Audience : étudiants Master EPSI, niveau expert technique.
-Structure souhaitée :
-1. Intro : résumé de la semaine en 2 minutes
-2. FinOps : actualités coûts cloud et repatriation (4 min)
-3. Green IT : bilan carbone numérique et réglementations (4 min)  
-4. Souveraineté : RGPD, Cloud Act, directives européennes (4 min)
-5. Tendance de la semaine : article le plus impactant (3 min)
-6. Conclusion : recommandation pour notre équipe de veille (2 min)
-Ton : professionnel, dynamique, citations des experts mentionnés.
-```
+   ```text
+   Génère un podcast de synthèse en FRANÇAIS.
+   Thèmes : FinOps, Green IT, Souveraineté des données.
+   Audience : étudiants Master EPSI, niveau expert technique.
+   Structure :
+   1. Intro — résumé de la semaine (2 min)
+   2. FinOps — coûts cloud et repatriation (4 min)
+   3. Green IT — bilan carbone et réglementations (4 min)
+   4. Souveraineté — RGPD, Cloud Act, directives EU (4 min)
+   5. Tendance de la semaine — article le plus impactant (3 min)
+   6. Conclusion — recommandation pour l'équipe (2 min)
+   Ton : professionnel, dynamique, citer les experts.
+   ```
 
-4. Cliquer sur **"Générer"**
-5. Patienter 5-15 minutes (selon la longueur des sources)
+4. Cliquer sur **"Générer"** — patienter ~10 minutes
 
-#### Export et distribution
+#### Étape D — Déposer le fichier dans Google Drive
 
-```bash
-# 1. Télécharger le MP3 depuis NotebookLM
-→ Cliquer sur le bouton de téléchargement audio
-→ Renommer : podcast_semaine_XX_YYYY.mp3
+1. Télécharger le fichier `.m4a` depuis NotebookLM
+2. Renommer selon la convention :
 
-# 2. Uploader dans Google Drive
-→ Google Drive → /Veille_Techno_2026/03_Podcast/
-→ Glisser-déposer le fichier MP3
+   ```text
+   podcast_semaine_XX_AAAA-MM-JJ.m4a
+   ```
 
-# 3. Obtenir le lien de partage
-→ Clic droit → Partager → Lien de partage
-→ Accès : "Tous les utilisateurs avec le lien peuvent consulter"
-→ Copier le lien
-
-# 4. Partager sur Slack
-→ Canal : #veille-podcast
-→ Coller le lien + message descriptif
-→ Épingler le message dans le canal
-```
+3. Déposer dans **Google Drive → `/03_Podcast/`**
+4. Le Workflow 3 de n8n détecte automatiquement le fichier
+5. Une notification est envoyée dans **#veille-podcast** avec le lien d'écoute
 
 ---
 
-## Format du podcast généré
+## 5. Convention de nommage des fichiers
 
-### Structure type (15-20 minutes)
+| Semaine | Digest source | Fichier podcast |
+| --- | --- | --- |
+| Semaine 21 | `digest_semaine_21_2026-05-21.md` | `L_IA_du_G20_aux_serveurs_marins.m4a` |
+| Semaine 22 | `digest_semaine_22_2026-05-26.md` | `podcast_semaine_22_2026-05-26.m4a` |
 
-```
-[0:00 - 2:00] INTRODUCTION
-  Présentateur A : "Bonjour et bienvenue dans le podcast de veille technologique 
-  de l'équipe EPSI. Je suis [voix IA 1]."
-  Présentateur B : "Et moi [voix IA 2]. Cette semaine, du 14 au 18 avril 2026, 
-  nous avons recensé [X] articles sur les thèmes FinOps, Green IT et 
-  souveraineté des données."
-  [Présentation des 3 sujets phares de la semaine]
+> **Premier podcast produit** : `L_IA_du_G20_aux_serveurs_marins.m4a` — semaine 21, 2026-05-21
 
-[2:00 - 6:00] SEGMENT FINOPS
-  Actualités : optimisation des coûts cloud, nouveaux outils TCO, 
-  tendances cloud repatriation
-  Citation d'experts mentionnés dans les articles
-  Impact pour les DSI et architectes cloud
+---
 
-[6:00 - 10:00] SEGMENT GREEN IT
-  Rapport sur l'empreinte carbone du numérique
-  Nouvelles certifications et labels environnementaux
-  Initiatives des grands acteurs (GAFAM, OVHcloud, Scaleway)
+## 6. Structure type du podcast généré
 
-[10:00 - 14:00] SEGMENT SOUVERAINETÉ DES DONNÉES
-  Évolutions réglementaires RGPD, AI Act, Cyber Resilience Act
+```text
+[0:00 – 2:00]   INTRODUCTION
+  Présentation de l'équipe EPSI et des thèmes de la semaine
+  Nombre d'articles analysés et faits marquants
+
+[2:00 – 6:00]   SEGMENT FINOPS
+  Actualités coûts cloud, outils TCO, cloud repatriation
+  Citation des experts et sources identifiés
+
+[6:00 – 10:00]  SEGMENT GREEN IT
+  Empreinte carbone numérique, certifications, réglementations
+  Initiatives des acteurs majeurs (hyperscalers, clouds FR)
+
+[10:00 – 14:00] SEGMENT SOUVERAINETÉ DES DONNÉES
+  Évolutions RGPD, AI Act, Cyber Resilience Act
   Positionnement des cloud providers européens
-  Cas pratiques souveraineté vs performance
 
-[14:00 - 17:00] TENDANCE DE LA SEMAINE
-  L'article le plus impactant analysé en profondeur
-  Discussion sur les implications à 6-12 mois
+[14:00 – 17:00] TENDANCE DE LA SEMAINE
+  Analyse approfondie de l'article le plus impactant
+  Implications à 6–12 mois pour le secteur
 
-[17:00 - 19:00] CONCLUSION
-  Recommandation concrète pour l'équipe de veille
-  Preview des sujets à surveiller la semaine suivante
-  Appel à contribution de l'équipe
+[17:00 – 19:00] CONCLUSION
+  Recommandation concrète pour l'équipe
+  Sujets à surveiller la semaine suivante
 ```
 
 ---
 
-## Automatisation avancée (roadmap)
-
-### Phase actuelle — Workflow semi-automatique
-
-```
-Make.com → Google Drive (digest)
-Humain → NotebookLM (ajout source + génération)
-Humain → Google Drive (upload MP3)
-Make.com → Slack (notification)
-```
-
-### Phase future — Workflow entièrement automatique
-
-L'API NotebookLM est en développement actif chez Google. L'automatisation complète sera possible lorsque les endpoints suivants seront disponibles :
-
-```
-POST /notebooks/{id}/sources     ← Ajouter une source
-POST /notebooks/{id}/audio       ← Déclencher Audio Overview
-GET  /notebooks/{id}/audio/status ← Vérifier l'avancement
-GET  /notebooks/{id}/audio/download ← Télécharger le MP3
-```
-
-**Estimation disponibilité** : fin 2026 (selon roadmap Google)
-
-#### Blueprint Make.com — Automatisation complète (future)
-
-```json
-{
-  "id": "podcast_automation_v3",
-  "trigger": "Vendredi 16h00",
-  "steps": [
-    "Lire digest_semaine.md depuis Google Drive",
-    "POST NotebookLM API → ajouter source",
-    "POST NotebookLM API → lancer Audio Overview",
-    "Polling statut toutes les 2 minutes",
-    "GET NotebookLM API → télécharger MP3",
-    "PUT Google Drive → /Podcast/ sauvegarder",
-    "POST Slack → #veille-podcast partager lien"
-  ]
-}
-```
-
----
-
-## Métriques et qualité
+## 7. Métriques et qualité
 
 ### KPIs du podcast
 
-| Métrique | Cible | Méthode de mesure |
-|---|---|---|
-| Podcasts produits/mois | 4 (1/semaine) | Comptage dossier /Podcast/ |
-| Durée moyenne | 15-20 min | Métadonnées fichier MP3 |
-| Délai production | < 2h (vendredi) | Horodatage fichier |
-| Couverture thématiques | 3/3 par épisode | Review manuelle |
-| Mentions équipe dans Slack | ≥ 3 réactions | Slack analytics |
+| Indicateur | Cible | Statut semaine 21 |
+| --- | --- | --- |
+| Podcasts produits / semaine | 1 | ✅ 1 produit |
+| Format | `.m4a` | ✅ Conforme |
+| Durée | 15–20 min | ✅ ~15 min |
+| Couverture thématique | 3/3 | ✅ FinOps + Green IT + Souveraineté |
+| Notification Slack automatique | Oui | ✅ #veille-podcast |
+| Temps d'action humaine | < 5 min | ✅ ~4 min |
 
-### Checklist qualité avant distribution
+### Checklist avant distribution
 
-```
-□ Vérifier que les 3 thématiques sont couvertes
-□ Confirmer la durée (15-20 min)
-□ Écouter les 2 premières minutes (intro correcte ?)
-□ Vérifier que le fichier MP3 est accessible sur Google Drive
-□ Lien de partage fonctionnel (accès "avec le lien")
-□ Message Slack bien formaté avec contexte de la semaine
-□ Fichier MP3 épinglé dans #veille-podcast
+```text
+□ Les 3 thématiques (FinOps / Green IT / Souveraineté) sont couvertes
+□ Durée entre 10 et 25 minutes
+□ Écouter les 2 premières minutes (intro correcte, en français ?)
+□ Fichier .m4a déposé dans /03_Podcast/
+□ Notification Slack #veille-podcast reçue
+□ Lien d'écoute fonctionnel dans la notification
 ```
 
 ---
 
-## Limites et points d'attention
+## 8. Limites actuelles et mitigations
 
 | Limitation | Impact | Mitigation |
-|---|---|---|
-| Langue française | Quality variable vs anglais | Prompt explicite en français |
-| Sources limitées (50 max) | Digest doit être synthétique | Sélectionner top 10 articles |
-| Pas d'API publique | Workflow manuel partiellement | Semi-automatisation acceptable |
-| Noms propres | Parfois mal prononcés | Accepter ou corriger dans digest |
-| Citations exactes | IA paraphrase, ne cite pas verbatim | Vérifier avant distribution critique |
-| Durée non contrôlable précisément | Peut varier 10-25 min | Ajuster volume des sources |
+| --- | --- | --- |
+| Pas d'API publique NotebookLM | Action manuelle requise | ~4 min/semaine — acceptable |
+| Format `.m4a` (non `.mp3`) | Compatibilité lecteurs | `.m4a` lisible sur tous OS modernes |
+| Langue française variable | Qualité parfois inégale | Prompt explicite + sources en FR |
+| Durée non contrôlable | 10–25 min selon les sources | Ajuster le volume du digest |
+| Sources limitées (50 max) | Digest doit être synthétique | Digest limité à top 5 articles/thème |
 
 ---
 
-## Exemples de prompts efficaces
+## 9. Évolution — Automatisation complète (Phase 4)
 
-### Prompt FinOps focalisé
+L'API NotebookLM est en développement chez Google. L'automatisation complète sera envisageable lorsque les endpoints suivants seront disponibles :
 
-```
-Génère un podcast de 10 minutes en français focalisé exclusivement sur FinOps 
-et la gestion des coûts cloud. Audience : DSI et architectes cloud en Europe.
-Inclure : tendances cloud repatriation, outils de cost optimization, 
-benchmarks TCO publiccloud vs on-premise.
-```
-
-### Prompt Green IT urgence
-
-```
-Génère un podcast de 12 minutes en français sur l'urgence du Green IT en 2026.
-Contexte réglementaire européen, directives carbones, certifications datacenter.
-Ton : alerte et pragmatique. Inclure des chiffres concrets d'impact.
+```text
+POST /notebooks/{id}/sources      ← Ajouter une source
+POST /notebooks/{id}/audio        ← Déclencher Audio Overview
+GET  /notebooks/{id}/audio/status ← Vérifier l'avancement
+GET  /notebooks/{id}/audio/export ← Télécharger le .m4a
 ```
 
-### Prompt souveraineté actualité
+Une fois disponibles, un **Workflow 4** pourra être créé dans n8n pour :
 
-```
-Génère un épisode de 15 minutes sur l'actualité de la souveraineté numérique 
-en Europe en 2026. RGPD, AI Act, alternatives aux GAFAM (OVHcloud, Scaleway, 
-Hetzner). Analyser les implications pour les entreprises françaises.
-```
+1. Détecter le nouveau digest dans `/02_Digest/`
+2. L'envoyer à NotebookLM via API
+3. Attendre la génération (polling toutes les 2 min)
+4. Télécharger le `.m4a` et l'uploader dans `/03_Podcast/`
 
 ---
 
-*Guide NotebookLM — Projet veille technologique EPSI 2025-2026*  
-*Équipe : Serge WEMBE II-ESSOUMBA · Cheik LAWANI · Javier LADINO*
+*Guide NotebookLM — Projet veille technologique EPSI 2025-2026*
+*Infrastructure : VM Proxmox · n8n · Google Drive · NotebookLM · Slack*

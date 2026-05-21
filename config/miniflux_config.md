@@ -1,330 +1,310 @@
-# Guide de déploiement MiniFlux — Veille EPSI 2026
+# Guide de déploiement Miniflux — Debian 12 (Proxmox)
 
-> **Rôle** : Agrégateur RSS open source, auto-hébergé, API-first  
-> **Version cible** : MiniFlux 2.x (latest)  
-> **Déploiement** : Docker Compose
-
----
-
-## Pourquoi MiniFlux ?
-
-MiniFlux est un lecteur RSS minimaliste et open source qui se distingue par :
-
-- **API REST complète** : intégration native avec Make.com sans plugins tiers
-- **Self-hosted** : données 100% sous contrôle, conformité RGPD garantie
-- **Légèreté** : < 50 Mo RAM, idéal sur un petit VPS
-- **Webhooks natifs** : envoi d'événements HTTP en temps réel sur nouveaux articles
-- **Base PostgreSQL** : robuste, sauvegardable, requêtes avancées possibles
+> **Rôle** : Agrégateur RSS open source, auto-hébergé, API-first
+> **Version** : Miniflux 2.x (dépôt officiel APT)
+> **Déploiement** : Binaire natif — service systemd, sans Docker
+> **Environnement** : VM Proxmox · Debian 12.4 Bookworm
 
 ---
 
-## Option A — Déploiement local (développement)
+## Prérequis
 
-### Prérequis
-- Docker Desktop installé
-- Git installé
-- Port 8080 disponible
+- VM Debian 12 provisionnée dans Proxmox
+- Accès SSH ou console Proxmox
+- Connexion internet depuis la VM (DNS public configuré)
+- Utilisateur avec droits `sudo`
 
-### Installation
+---
+
+## 1. Préparation du système
 
 ```bash
-# 1. Cloner / créer le répertoire de configuration
-mkdir miniflux-veille && cd miniflux-veille
+# Mise à jour du système
+sudo apt update && sudo apt upgrade -y
 
-# 2. Créer le fichier docker-compose.yml (voir contenu ci-dessous)
+# Dépendances de base
+sudo apt install -y curl gnupg ca-certificates nginx
 
-# 3. Lancer les conteneurs
-docker compose up -d
-
-# 4. Vérifier que les conteneurs tournent
-docker compose ps
-
-# 5. Consulter les logs
-docker compose logs -f miniflux
+# Vérifier la connectivité DNS (requis pour les dépôts)
+ping -c 2 deb.debian.org
 ```
 
-### Fichier `docker-compose.yml`
+> **Note DNS** : Si la résolution DNS échoue, ajouter un serveur public dans `/etc/resolv.conf` :
+>
+> ```bash
+> sudo nano /etc/resolv.conf
+> # Ajouter en première ligne :
+> nameserver 8.8.8.8
+> ```
+>
+> Pour rendre la configuration persistante via DHCP :
+>
+> ```bash
+> echo "prepend domain-name-servers 8.8.8.8;" | sudo tee -a /etc/dhcp/dhclient.conf
+> ```
 
-```yaml
-version: '3.8'
+---
 
-services:
-  miniflux:
-    image: miniflux/miniflux:latest
-    container_name: miniflux_veille
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      DATABASE_URL: postgres://miniflux:VeilleEPSI2026@db/miniflux?sslmode=disable
-      RUN_MIGRATIONS: "1"
-      CREATE_ADMIN: "1"
-      ADMIN_USERNAME: veille_admin
-      ADMIN_PASSWORD: "VeilleEPSI2026!"
-      # Optionnel : activer les webhooks sortants
-      POLLING_FREQUENCY: "60"
-      POLLING_PARSING_ERROR_LIMIT: "3"
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "/usr/bin/miniflux", "-healthcheck", "auto"]
+## 2. Installation de PostgreSQL
 
-  db:
-    image: postgres:15-alpine
-    container_name: miniflux_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: miniflux
-      POSTGRES_PASSWORD: VeilleEPSI2026
-      POSTGRES_DB: miniflux
-    volumes:
-      - miniflux_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "miniflux"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+```bash
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
 
-volumes:
-  miniflux_db_data:
-    driver: local
+# Vérification
+sudo systemctl status postgresql
 ```
 
 ---
 
-## Option B — Déploiement VPS (production)
+## 3. Création de la base de données
 
-### Prérequis VPS recommandés
-- OVHcloud Starter (2 vCPU, 2 Go RAM, 20 Go SSD) ~3.5€/mois
-- Scaleway DEV1-S (2 vCPU, 2 Go RAM, 20 Go SSD) ~3.99€/mois
-- Ubuntu 22.04 LTS
-- Docker + Docker Compose installés
+```bash
+# Créer l'utilisateur Miniflux
+sudo -u postgres createuser -P miniflux
+# → Saisir un mot de passe fort (sans caractères spéciaux shell)
 
-### Configuration avec HTTPS (Nginx + Let's Encrypt)
+# Créer la base de données
+sudo -u postgres createdb -O miniflux miniflux
+
+# Activer l'extension hstore
+sudo -u postgres psql miniflux -c 'create extension hstore'
+```
+
+> **Résolution d'erreur** : Si `must be owner of extension hstore` lors de la migration :
+>
+> ```bash
+> sudo -u postgres psql -c "ALTER USER miniflux WITH SUPERUSER;"
+> sudo miniflux -config-file /etc/miniflux.conf -migrate
+> sudo -u postgres psql -c "ALTER USER miniflux WITH NOSUPERUSER;"
+> ```
+
+---
+
+## 4. Installation de Miniflux
+
+```bash
+# Télécharger le paquet .deb depuis GitHub Releases
+DEB_URL=$(curl -s https://api.github.com/repos/miniflux/v2/releases/latest \
+  | grep "browser_download_url.*amd64.deb" \
+  | cut -d '"' -f 4)
+
+curl -L -o miniflux.deb "$DEB_URL"
+sudo dpkg -i miniflux.deb
+sudo apt install -f  # Résoudre les dépendances si nécessaire
+```
+
+---
+
+## 5. Configuration
+
+```bash
+sudo nano /etc/miniflux.conf
+```
+
+Contenu du fichier `/etc/miniflux.conf` :
+
+```ini
+# Connexion PostgreSQL
+DATABASE_URL=postgres://miniflux:MOT_DE_PASSE@localhost/miniflux?sslmode=disable
+
+# Adresse d'écoute interne (Nginx forward vers ce port)
+LISTEN_ADDR=127.0.0.1:8080
+
+# URL publique de l'instance (utilisée pour la validation CSRF)
+BASE_URL=http://localhost/
+
+# Clé secrète pour les sessions (générer avec : openssl rand -hex 32)
+SECRET_KEY=VALEUR_GENEREE
+
+# Intervalle de polling des flux RSS (en minutes)
+POLLING_FREQUENCY=30
+
+# Niveau de journalisation
+LOG_LEVEL=info
+```
+
+Générer la `SECRET_KEY` :
+
+```bash
+openssl rand -hex 32
+```
+
+---
+
+## 6. Initialisation et création de l'administrateur
+
+```bash
+# Exécuter les migrations de base de données
+sudo miniflux -config-file /etc/miniflux.conf -migrate
+
+# Créer le compte administrateur
+sudo miniflux -config-file /etc/miniflux.conf -create-admin
+```
+
+---
+
+## 7. Activation du service systemd
+
+```bash
+sudo systemctl enable miniflux
+sudo systemctl start miniflux
+
+# Vérification
+sudo systemctl status miniflux
+sudo journalctl -u miniflux -n 20 --no-pager
+```
+
+---
+
+## 8. Configuration Nginx (reverse proxy)
+
+```bash
+sudo nano /etc/nginx/sites-available/miniflux
+```
 
 ```nginx
-# /etc/nginx/sites-available/miniflux
 server {
     listen 80;
-    server_name veille.epsi.votre-domaine.fr;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name veille.epsi.votre-domaine.fr;
-
-    ssl_certificate /etc/letsencrypt/live/veille.epsi.votre-domaine.fr/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/veille.epsi.votre-domaine.fr/privkey.pem;
+    server_name _;
 
     location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Forwarded-Host  $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
     }
 }
 ```
 
 ```bash
-# Obtenir le certificat SSL
-sudo certbot --nginx -d veille.epsi.votre-domaine.fr
+sudo ln -s /etc/nginx/sites-available/miniflux /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+sudo systemctl enable nginx
 ```
 
 ---
 
-## Configuration des flux RSS
+## 9. Accès depuis le poste client
 
-### Accès à l'interface
+Miniflux écoute sur `127.0.0.1` uniquement. L'accès se fait via tunnel SSH :
 
-```
-URL : http://localhost:8080 (local) ou https://veille.epsi.domaine.fr (prod)
-Login : veille_admin
-Mot de passe : VeilleEPSI2026!
-```
+```bash
+# Depuis le poste client (Mac/Linux)
+ssh -L 8080:127.0.0.1:8080 jladino@172.16.89.44
 
-### Flux RSS recommandés par thématique
-
-#### FinOps
-
-| Source | URL du flux |
-|---|---|
-| FinOps Foundation | `https://www.finops.org/feed/` |
-| The New Stack - Cloud | `https://thenewstack.io/feed/` |
-| InfoQ Cloud | `https://feed.infoq.com/cloud` |
-| Le Cloud - Le Monde Info | `https://www.lemondeinformatique.fr/flux-rss/thematique/cloud-computing/rss.xml` |
-| Silicon.fr Cloud | `https://www.silicon.fr/category/cloud/feed` |
-
-#### Green IT
-
-| Source | URL du flux |
-|---|---|
-| GreenIT.fr | `https://www.greenit.fr/feed/` |
-| ADEME Numérique | `https://www.ademe.fr/rss.xml` |
-| WWF France | `https://www.wwf.fr/feed` |
-| IEA Energy | `https://www.iea.org/rss/news.xml` |
-| The Shift Project | `https://theshiftproject.org/feed/` |
-
-#### Souveraineté des données
-
-| Source | URL du flux |
-|---|---|
-| CNIL | `https://www.cnil.fr/fr/rss.xml` |
-| NextINpact | `https://www.nextinpact.com/rss/articles.xml` |
-| Le Monde Informatique | `https://www.lemondeinformatique.fr/flux-rss/rss.xml` |
-| Silicon.fr | `https://www.silicon.fr/feed` |
-| Numerama | `https://www.numerama.com/feed/` |
-
-#### Sources académiques & institutionnelles
-
-| Source | URL du flux |
-|---|---|
-| INRIA Actualités | `https://www.inria.fr/fr/rss.xml` |
-| European Commission Digital | `https://digital-strategy.ec.europa.eu/en/rss.xml` |
-| ENISA News | `https://www.enisa.europa.eu/rss-feeds/rss.xml` |
-
-### Import en masse via OPML
-
-```xml
-<!-- miniflux_feeds_v2.opml — à importer dans MiniFlux -->
-<?xml version="1.0" encoding="UTF-8"?>
-<opml version="2.0">
-  <head>
-    <title>Veille EPSI 2026 — Flux RSS</title>
-    <dateCreated>2026-04-18</dateCreated>
-  </head>
-  <body>
-    <outline text="FinOps" title="FinOps">
-      <outline type="rss" text="FinOps Foundation" title="FinOps Foundation"
-               xmlUrl="https://www.finops.org/feed/" htmlUrl="https://www.finops.org"/>
-      <outline type="rss" text="The New Stack" title="The New Stack"
-               xmlUrl="https://thenewstack.io/feed/" htmlUrl="https://thenewstack.io"/>
-    </outline>
-    <outline text="Green IT" title="Green IT">
-      <outline type="rss" text="GreenIT.fr" title="GreenIT.fr"
-               xmlUrl="https://www.greenit.fr/feed/" htmlUrl="https://www.greenit.fr"/>
-      <outline type="rss" text="ADEME" title="ADEME"
-               xmlUrl="https://www.ademe.fr/rss.xml" htmlUrl="https://www.ademe.fr"/>
-    </outline>
-    <outline text="Souveraineté" title="Souveraineté des données">
-      <outline type="rss" text="CNIL" title="CNIL"
-               xmlUrl="https://www.cnil.fr/fr/rss.xml" htmlUrl="https://www.cnil.fr"/>
-      <outline type="rss" text="NextINpact" title="NextINpact"
-               xmlUrl="https://www.nextinpact.com/rss/articles.xml" htmlUrl="https://www.nextinpact.com"/>
-    </outline>
-  </body>
-</opml>
+# Accès dans le navigateur
+http://localhost:8080/
 ```
 
 ---
 
-## Configuration de l'API MiniFlux
+## 10. Configuration de l'API pour n8n
 
-### Obtenir la clé API
+Dans l'interface Miniflux :
 
-```bash
-# Via l'interface web
-→ Réglages → API Keys → Créer une nouvelle clé API
-→ Nom : "make_com_integration"
-→ Copier la clé générée
+1. **Settings → API Keys → Create a new API key**
+2. Nom : `n8n_veille`
+3. Copier la clé générée
 
-# Via CLI (si accès Docker)
-docker exec miniflux_veille /usr/bin/miniflux -create-admin
-```
-
-### Tester l'API
-
-```bash
-# Variables d'environnement
-export MINIFLUX_URL="http://localhost:8080"
-export MINIFLUX_API_KEY="votre-clé-api-ici"
-
-# Lister les articles non lus
-curl -s -H "X-Auth-Token: $MINIFLUX_API_KEY" \
-  "$MINIFLUX_URL/v1/entries?status=unread&limit=10" | python3 -m json.tool
-
-# Lister les flux configurés
-curl -s -H "X-Auth-Token: $MINIFLUX_API_KEY" \
-  "$MINIFLUX_URL/v1/feeds" | python3 -m json.tool
-
-# Marquer un article comme lu
-curl -s -X PUT -H "X-Auth-Token: $MINIFLUX_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"entry_ids": [123], "status": "read"}' \
-  "$MINIFLUX_URL/v1/entries"
-```
-
-### Endpoints utiles pour Make.com
+### Endpoints API utilisés par n8n
 
 | Endpoint | Méthode | Usage |
 |---|---|---|
-| `/v1/entries?status=unread&limit=50` | GET | Récupérer nouveaux articles |
-| `/v1/entries?status=unread&starred=true` | GET | Articles favoris |
-| `/v1/feeds` | GET | Liste de tous les flux |
-| `/v1/entries/{id}` | PUT | Marquer comme lu |
-| `/v1/entries?category_id=X` | GET | Filtrer par catégorie |
+| `/v1/entries?status=unread&limit=50` | GET | Collecte articles non lus |
+| `/v1/entries?after=TIMESTAMP&limit=100` | GET | Articles des 7 derniers jours |
+| `/v1/entries` | PUT | Marquer articles comme lus |
+| `/v1/feeds` | GET | Lister les flux configurés |
 
----
+### Test de l'API
 
-## Configuration des webhooks MiniFlux
-
-MiniFlux supporte les webhooks natifs pour envoyer des événements HTTP à Make.com en temps réel (alternative au polling).
-
-### Activer dans docker-compose.yml
-
-```yaml
-environment:
-  # Ajouter ces variables
-  WATCHDOG_WORKER_POOL_SIZE: "1"
-```
-
-### Configuration webhook dans l'interface
-
-```
-Réglages → Intégrations → Webhook
-URL : https://hook.eu2.make.com/[votre-id-webhook]
-Événements : new_entries (nouveaux articles)
-Secret : [votre-secret-make-com]
+```bash
+# Depuis la VM (connexion locale directe)
+curl -s http://127.0.0.1:8080/v1/me \
+  -H "X-Auth-Token: VOTRE_CLE_API" | python3 -m json.tool
 ```
 
 ---
 
-## Sauvegarde et maintenance
+## 11. Flux RSS configurés
 
-### Sauvegarde de la base de données
+### FinOps
+
+| Source | URL |
+|---|---|
+| FinOps Foundation | `https://www.finops.org/feed/` |
+| Le Monde Informatique — Infrastructure | `https://www.lemondeinformatique.fr/flux-rss/thematique/infrastructure/rss.xml` |
+| Silicon.fr | `https://www.silicon.fr/feed` |
+| The New Stack | `https://thenewstack.io/feed/` |
+
+### Green IT
+
+| Source | URL |
+|---|---|
+| GreenIT.fr | `https://www.greenit.fr/feed/` |
+| The Shift Project | `https://theshiftproject.org/feed/` |
+| ADEME | `https://www.ademe.fr/rss.xml` |
+| Next.ink | `https://next.ink/feed/` |
+
+### Souveraineté des données
+
+| Source | URL |
+|---|---|
+| CNIL | `https://www.cnil.fr/fr/rss.xml` |
+| Next.ink | `https://next.ink/feed/` |
+| Silicon.fr | `https://www.silicon.fr/feed` |
+| Numerama | `https://www.numerama.com/feed/` |
+
+---
+
+## 12. Maintenance
+
+### Mise à jour de Miniflux
+
+```bash
+# Télécharger et installer la nouvelle version
+DEB_URL=$(curl -s https://api.github.com/repos/miniflux/v2/releases/latest \
+  | grep "browser_download_url.*amd64.deb" \
+  | cut -d '"' -f 4)
+
+curl -L -o miniflux_new.deb "$DEB_URL"
+sudo systemctl stop miniflux
+sudo dpkg -i miniflux_new.deb
+sudo miniflux -config-file /etc/miniflux.conf -migrate
+sudo systemctl start miniflux
+```
+
+### Sauvegarde PostgreSQL
 
 ```bash
 # Sauvegarde manuelle
-docker exec miniflux_db pg_dump -U miniflux miniflux > backup_$(date +%Y%m%d).sql
+sudo -u postgres pg_dump miniflux > backup_miniflux_$(date +%Y%m%d).sql
 
-# Sauvegarde automatique (cron hebdomadaire)
-0 3 * * 0 docker exec miniflux_db pg_dump -U miniflux miniflux > /backups/miniflux_$(date +\%Y\%m\%d).sql
+# Sauvegarde automatique hebdomadaire (cron)
+# sudo crontab -e
+0 3 * * 0 sudo -u postgres pg_dump miniflux > /var/backups/miniflux_$(date +\%Y\%m\%d).sql
 ```
 
-### Mise à jour MiniFlux
+### Vérification de l'état des services
 
 ```bash
-# Mettre à jour vers la dernière version
-docker compose pull miniflux
-docker compose up -d miniflux
-docker compose logs -f miniflux
+sudo systemctl status miniflux postgresql nginx
+sudo journalctl -u miniflux -n 50 --no-pager
 ```
 
-### Monitoring basique
+### Réinitialisation du mot de passe admin
 
 ```bash
-# Vérifier l'état des conteneurs
-docker compose ps
-
-# Utilisation des ressources
-docker stats miniflux_veille miniflux_db
-
-# Espace disque base de données
-docker exec miniflux_db psql -U miniflux -c "SELECT pg_size_pretty(pg_database_size('miniflux'));"
+sudo miniflux -config-file /etc/miniflux.conf -reset-password
 ```
 
 ---
 
-*Configuration MiniFlux — Projet veille technologique EPSI 2025-2026*
+*Guide de déploiement Miniflux — Projet veille technologique EPSI 2025-2026*
+*Infrastructure : VM Proxmox · Debian 12 Bookworm · Binaire natif*

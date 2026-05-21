@@ -1,56 +1,53 @@
-# Système de Veille Technologique — Version POC (v2)
-## Stack Open Source : MiniFlux · Make.com · Google Drive · Slack · NotebookLM
+# Système de Veille Technologique — POC v2
 
-> **Version** : 2.0 — Proof of Concept  
-> **Basé sur** : [README.md](README.md) (Version 1 — Stack SaaS)  
-> **Thématiques** : FinOps · Green IT · Souveraineté des données  
-> **Équipe** : Serge WEMBE II-ESSOUMBA · Cheik LAWANI · Javier LADINO
+> **Projet** : Veille Technologique — Master EPSI 2025-2026  
+> **Version** : 2.0 — Proof of Concept (déployé et opérationnel)  
+> **Équipe** : Serge WEMBE II-ESSOUMBA · Cheik LAWANI · Javier LADINO  
+> **Thématiques** : FinOps · Green IT · Souveraineté des données
 
 ---
 
 ## Sommaire
 
-1. [Contexte et motivation du POC](#1-contexte-et-motivation-du-poc)
+1. [Contexte et motivation](#1-contexte-et-motivation)
 2. [Problématique centrale](#2-problématique-centrale)
 3. [Stack technique v2](#3-stack-technique-v2)
-4. [Architecture et pipeline de données](#4-architecture-et-pipeline-de-données)
-5. [Déploiement de MiniFlux](#5-déploiement-de-miniflux)
-6. [Configuration Make.com (scénario v2)](#6-configuration-makecom-scénario-v2)
-7. [Organisation Google Drive](#7-organisation-google-drive)
-8. [Automatisation Slack](#8-automatisation-slack)
-9. [Production du podcast avec NotebookLM](#9-production-du-podcast-avec-notebooklm)
-10. [Workflow opérationnel](#10-workflow-opérationnel)
-11. [Comparatif v1 vs v2](#11-comparatif-v1-vs-v2)
-12. [KPIs et métriques](#12-kpis-et-métriques)
-13. [Structure du dépôt](#13-structure-du-dépôt)
-14. [Feuille de route](#14-feuille-de-route)
+4. [Architecture et infrastructure](#4-architecture-et-infrastructure)
+5. [Workflows automatisés](#5-workflows-automatisés)
+6. [Organisation Google Drive](#6-organisation-google-drive)
+7. [Communication Slack](#7-communication-slack)
+8. [Production du podcast — NotebookLM](#8-production-du-podcast--notebooklm)
+9. [Comparatif v1 vs v2](#9-comparatif-v1-vs-v2)
+10. [KPIs et métriques](#10-kpis-et-métriques)
+11. [Structure du dépôt](#11-structure-du-dépôt)
+12. [Feuille de route](#12-feuille-de-route)
 
 ---
 
-## 1. Contexte et motivation du POC
+## 1. Contexte et motivation
 
-La version 1 du système de veille repose sur un ensemble d'outils SaaS propriétaires (Feedly, Talkwalker, Notion) qui présentent plusieurs limites dans un contexte de souveraineté des données et de maîtrise des coûts :
+La version 1 du système de veille reposait sur un ensemble d'outils SaaS propriétaires (Feedly, Talkwalker, Notion) présentant des limites structurelles incompatibles avec les thématiques étudiées :
 
 | Limitation v1 | Impact |
 |---|---|
-| Données hébergées chez des tiers (Feedly, Notion) | Contradiction avec la thématique souveraineté |
-| Coût mensuel cumulé des licences SaaS | Non aligné avec les principes FinOps |
+| Données hébergées chez des tiers (Feedly, Notion) | Contradiction directe avec la thématique **Souveraineté** |
+| Coût mensuel cumulé des licences SaaS | Non aligné avec les principes **FinOps** |
 | Dépendance fournisseur (vendor lock-in) | Risque de continuité de service |
-| Intégrations API limitées en tier gratuit | Automatisation incomplète |
+| Automatisation limitée par les tiers payants | Pipeline incomplet |
 
-Ce POC explore un **stack alternatif centré sur l'open source et la maîtrise des données**, tout en ajoutant une fonctionnalité différenciante : **la production automatisée d'un podcast audio** via NotebookLM.
+Le POC v2 explore un **stack 100% open source et auto-hébergé**, cohérent avec les trois thématiques de la veille, en ajoutant une fonctionnalité différenciante : la **production automatisée d'un podcast audio** via NotebookLM.
 
 ---
 
 ## 2. Problématique centrale
 
-> *"Comment l'équation entre maîtrise des coûts (FinOps), urgence écologique (Green IT) et souveraineté des données reconfigure-t-elle les frontières entre Cloud, On-Premise et Hybride pour les années à venir ?"*
+> *« Comment l'équation entre maîtrise des coûts (FinOps), urgence écologique (Green IT) et souveraineté des données reconfigure-t-elle les frontières entre Cloud, On-Premise et Hybride pour les années à venir ? »*
 
 ### Objectifs stratégiques
 
-- **Anticiper** les mouvements de rapatriement cloud (cloud repatriation)
+- **Anticiper** les mouvements de rapatriement cloud (*cloud repatriation*)
 - **Évaluer** le TCO réel des infrastructures hybrides à horizon 3 ans
-- **Suivre** l'évolution réglementaire européenne (RGPD, Cyber Resilience Act, AI Act)
+- **Suivre** l'évolution réglementaire européenne (RGPD, AI Act, Cyber Resilience Act)
 - **Intégrer** les critères d'éco-responsabilité dans les décisions d'architecture
 
 ---
@@ -58,473 +55,271 @@ Ce POC explore un **stack alternatif centré sur l'open source et la maîtrise d
 ## 3. Stack technique v2
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        STACK TECHNIQUE v2                        │
-├────────────────┬────────────────┬───────────────┬───────────────┤
-│   COLLECTE     │ AUTOMATISATION │   STOCKAGE    │ COMMUNICATION │
-│                │                │   & ANALYSE   │               │
-├────────────────┼────────────────┼───────────────┼───────────────┤
-│  MiniFlux      │   Make.com     │  Google Drive │     Slack     │
-│  (self-hosted) │  (scénario v2) │  (structuré)  │  (3 canaux)   │
-│                │                │               │               │
-│  + RSS/Atom    │  + Webhooks    │  + Sheets     │  + Webhooks   │
-│  + API REST    │  + Filtres     │  + Docs       │  + Bots       │
-│  + Docker      │  + Routage     │  + Drive API  │               │
-└────────────────┴────────────────┴───────────────┴───────────────┘
-                                                        │
-                                    ┌───────────────────▼──────────┐
-                                    │  PRODUCTION PODCAST           │
-                                    │  NotebookLM (Google)          │
-                                    │  Audio Overview automatisé    │
-                                    └──────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         STACK TECHNIQUE v2                            │
+├─────────────────┬──────────────────┬──────────────┬──────────────────┤
+│    COLLECTE     │  AUTOMATISATION  │   STOCKAGE   │  COMMUNICATION   │
+├─────────────────┼──────────────────┼──────────────┼──────────────────┤
+│   Miniflux      │      n8n         │ Google Drive │      Slack       │
+│  (self-hosted)  │  (self-hosted)   │  (structuré) │   (3 canaux)     │
+│                 │                  │              │                  │
+│  + RSS/Atom     │  + 3 workflows   │  + /01_Raw/  │  #veille-critique│
+│  + API REST     │  + JS natif      │  + /02_Digest│  #veille-hebdo   │
+│  + PostgreSQL   │  + Cron intégré  │  + /03_Podcast  #veille-podcast │
+│                 │                  │  + /04_Reports              │   │
+└─────────────────┴──────────────────┴──────────────┴──────────────────┘
+                                                            │
+                                        ┌───────────────────▼──────────┐
+                                        │    PRODUCTION PODCAST         │
+                                        │    NotebookLM (Google)        │
+                                        │    Audio Overview (.m4a)      │
+                                        └──────────────────────────────┘
 ```
 
 ### Justification des choix techniques
 
 | Outil | Rôle | Justification |
 |---|---|---|
-| **MiniFlux** | Agrégateur RSS | Open source, self-hosted, API-first, RGPD-compatible |
-| **Make.com** | Orchestration | Connexions natives Google Drive + Slack, scénarios visuels |
-| **Google Drive** | Stockage | Gratuit jusqu'à 15 Go, API robuste, partage équipe |
+| **Miniflux** | Agrégateur RSS | Open source, self-hosted, API REST complète, RGPD natif |
+| **n8n** | Orchestration | Open source, self-hosted, JavaScript natif, 0€ |
+| **Google Drive** | Stockage | 15 Go gratuits, API robuste, partage équipe |
 | **Slack** | Communication | Webhooks entrants gratuits, intégrations riches |
-| **NotebookLM** | Podcast audio | IA de synthèse + Audio Overview, gratuit, sources citées |
+| **NotebookLM** | Podcast audio | Audio Overview IA, gratuit, sources citées |
 
 ---
 
-## 4. Architecture et pipeline de données
+## 4. Architecture et infrastructure
 
 Voir le schéma détaillé : [docs/poc_architecture.md](docs/poc_architecture.md)
 
-### Vue d'ensemble du flux
+### Infrastructure physique
 
 ```
-Sources RSS                    MiniFlux              Make.com
-─────────────                 ──────────            ──────────
-FinOps feeds ──────────────►  Self-hosted  ──────►  Polling API
-GreenIT feeds ─────────────►  Docker       │        Filtre mots-clés
-Souveraineté feeds ─────────►  :8080        │        Routage intelligent
-                                            │
-                    ┌───────────────────────┘
-                    │
-                    ▼
-         ┌──────────────────────────────────────────┐
-         │           MAKE.COM — ROUTEUR              │
-         │                                          │
-         │  [Critique] ──────► Slack #veille-critique│
-         │  [Standard] ──────► Google Drive /Raw     │
-         │  [Hebdo]    ──────► Google Drive /Digest  │
-         │  [Digest]   ──────► NotebookLM sources    │
-         └──────────────────────────────────────────┘
-                    │                    │
-                    ▼                    ▼
-              Slack channels      Google Drive
-              #veille-critique    /Veille_2026/
-              #veille-hebdo         Raw/
-              #veille-podcast       Digest/
-                                    Podcast/
-                    │                    │
-                    └────────────────────┘
-                                │
-                                ▼
-                          NotebookLM
-                    (Upload digest hebdo)
-                    Audio Overview généré
-                                │
-                                ▼
-                    Google Drive /Podcast/
-                    podcast_semaine_XX.mp3
-                                │
-                                ▼
-                    Slack #veille-podcast
-                    (lien de partage)
+┌──────────────────────────────────────────────────────────────┐
+│              PROXMOX — Hyperviseur on-premise                 │
+│                                                               │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  VM : i2-infra-veille-g1 — Debian 12 (Bookworm)     │    │
+│  │  IP : 172.16.89.44 · 2 vCPU · 2 Go RAM · 20 Go      │    │
+│  │                                                       │    │
+│  │  ┌──────────────┐    ┌──────────────┐               │    │
+│  │  │ PostgreSQL 15│    │   Miniflux   │               │    │
+│  │  │  Port 5432   │◄───│  Port 8080   │               │    │
+│  │  └──────────────┘    └──────┬───────┘               │    │
+│  │                             │                         │    │
+│  │  ┌──────────────┐    ┌──────▼───────┐               │    │
+│  │  │    Nginx     │    │     n8n      │               │    │
+│  │  │  Port 80     │    │  Port 5678   │               │    │
+│  │  └──────────────┘    └──────────────┘               │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                                                               │
+│  Accès : SSH tunnel depuis le poste client                   │
+└──────────────────────────────────────────────────────────────┘
+                          │
+                          │ HTTPS sortant (VM → Internet)
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    SERVICES CLOUD (SaaS)                       │
+│                                                               │
+│  Google Drive          Slack              NotebookLM          │
+│  /01_Raw/              #veille-critique   Notebook            │
+│  /02_Digest/           #veille-hebdo      Veille EPSI 2026    │
+│  /03_Podcast/          #veille-podcast                        │
+│  /04_Reports/                                                  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Déploiement de MiniFlux
+## 5. Workflows automatisés
 
-Voir le guide complet : [config/miniflux_config.md](config/miniflux_config.md)
+Trois workflows n8n orchestrent le pipeline de veille.
 
-### Prérequis
-
-- Docker Desktop (Mac/Windows/Linux) ou VPS (OVHcloud, Scaleway)
-- Accès terminal / SSH
-- Port 8080 disponible (ou configurable)
-
-### Démarrage rapide avec Docker Compose
-
-```yaml
-# docker-compose.yml
-version: '3'
-services:
-  miniflux:
-    image: miniflux/miniflux:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - DATABASE_URL=postgres://miniflux:secret@db/miniflux?sslmode=disable
-      - RUN_MIGRATIONS=1
-      - CREATE_ADMIN=1
-      - ADMIN_USERNAME=veille_admin
-      - ADMIN_PASSWORD=VeilleEPSI2026!
-    depends_on:
-      - db
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=miniflux
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_DB=miniflux
-    volumes:
-      - miniflux_db:/var/lib/postgresql/data
-
-volumes:
-  miniflux_db:
-```
-
-```bash
-# Lancement
-docker compose up -d
-
-# Accès interface web
-open http://localhost:8080
-
-# Vérification logs
-docker compose logs -f miniflux
-```
-
-### Flux RSS à configurer
+### Workflow 1 — Collecte des articles (toutes les 2 heures)
 
 ```
-FINOPS :
-  https://feeds.feedburner.com/finops-foundation
-  https://www.finops.org/feed/
-  https://cloudoptimizer.net/feed/
-
-GREEN IT :
-  https://www.greenit.fr/feed/
-  https://www.wwf.fr/feed
-  https://www.iea.org/rss/news.xml
-
-SOUVERAINETÉ :
-  https://www.silicon.fr/feed
-  https://www.lemondeinformatique.fr/flux-rss/thematique/infrastructure/rss.xml
-  https://www.nextinpact.com/rss/articles.xml
-  https://www.cnil.fr/fr/rss.xml
+Schedule Trigger (2h)
+    → HTTP Request    — GET /v1/entries?status=unread (Miniflux API)
+    → Split Out       — Séparer les entrées
+    → Code (filtre)   — Filtrage par mots-clés thématiques
+    → Code (markdown) — Construction du fichier .md
+    → Google Drive    — Upload → /01_Raw/article_AAAA-MM-JJ_ID.md
+    → HTTP Request    — PUT /v1/entries (marquer comme lu dans Miniflux)
+    → HTTP Request    — POST Slack #veille-critique (articles critiques)
 ```
+
+### Workflow 2 — Digest hebdomadaire (lundi 08h00)
+
+```
+Schedule Trigger (lundi 08h)
+    → Code            — Calcul timestamp 7 jours, numéro de semaine
+    → HTTP Request    — GET /v1/entries?after=TIMESTAMP (Miniflux API)
+    → Code (digest)   — Agrégation par thématique + construction .md
+    → Google Drive    — Upload → /02_Digest/digest_semaine_XX_AAAA-MM-JJ.md
+    → HTTP Request    — POST Slack #veille-hebdo (résumé + action NotebookLM)
+```
+
+### Workflow 3 — Notification podcast (à la détection d'un fichier)
+
+```
+Google Drive Trigger  — Nouveau fichier dans /03_Podcast/
+    → HTTP Request    — POST Slack #veille-podcast (lien d'écoute)
+```
+
+### Mots-clés de filtrage
+
+| Thématique | Mots-clés (FR + EN) |
+|---|---|
+| **FinOps** | `finops`, `cloud cost`, `tco`, `cost optimization`, `capex`, `opex`, `cloud billing`, `coût du cloud`, `budget cloud` |
+| **Green IT** | `green it`, `énergie`, `datacenter`, `empreinte carbone`, `sustainability`, `carbon`, `renewable energy`, `sobriété numérique` |
+| **Souveraineté** | `sovereignty`, `souveraineté`, `gdpr`, `rgpd`, `cloud repatriation`, `ai act`, `données personnelles`, `conformité` |
 
 ---
 
-## 6. Configuration Make.com (scénario v2)
-
-Voir le blueprint JSON : [config/make_scenario_v2.json](config/make_scenario_v2.json)
-
-### Scénario principal — Collecte & Distribution
-
-**Étape 1 — Déclencheur (Trigger)**
-- Module : `HTTP - Make a request`
-- URL : `http://[MINIFLUX_HOST]:8080/v1/entries?status=unread&limit=50`
-- Headers : `X-Auth-Token: [MINIFLUX_API_KEY]`
-- Fréquence : toutes les 2 heures
-
-**Étape 2 — Filtrage par mots-clés**
-```
-Condition OR :
-  titre CONTIENT "FinOps"
-  titre CONTIENT "Green IT" OU "GreenIT"
-  titre CONTIENT "souveraineté" OU "sovereignty"
-  titre CONTIENT "cloud repatriation" OU "rapatriement"
-  titre CONTIENT "TCO" OU "CAPEX" OU "OPEX"
-  titre CONTIENT "RGPD" OU "Cloud Act" OU "AI Act"
-```
-
-**Étape 3 — Routeur**
-
-| Branche | Condition | Action |
-|---|---|---|
-| Critique | Score pertinence > 8 | Post Slack `#veille-critique` |
-| Standard | Tous articles filtrés | Créer fichier Google Drive `/Raw/` |
-| Hebdomadaire | Chaque lundi 08h00 | Générer digest → Google Drive `/Digest/` |
-
-**Étape 4 — Actions parallèles**
-- **Google Drive** : Créer document `{titre}_{date}.md` dans `/Veille_2026/Raw/`
-- **Slack** : Envoyer message formaté avec titre, résumé, URL, tags thématiques
-- **Google Sheets** : Ajouter ligne dans le tableau de suivi des articles
-
----
-
-## 7. Organisation Google Drive
+## 6. Organisation Google Drive
 
 ```
-📁 Google Drive
-└── 📁 Veille_Techno_2026/
-    ├── 📁 00_Config/
-    │   ├── make_scenario_v2.json
-    │   └── miniflux_feeds.opml
-    ├── 📁 01_Raw/
-    │   └── 📁 2026/
-    │       ├── 📁 04-avril/
-    │       │   ├── article_finops_20260418.md
-    │       │   └── article_greenit_20260417.md
-    │       └── 📁 05-mai/
-    ├── 📁 02_Digest/
-    │   └── 📁 2026/
-    │       ├── digest_semaine_16.md
-    │       └── digest_semaine_17.md
-    ├── 📁 03_Podcast/
-    │   ├── podcast_semaine_16.mp3
-    │   └── podcast_semaine_17.mp3
-    ├── 📁 04_Reports/
-    │   └── rapport_mensuel_avril_2026.md
-    └── 📄 suivi_articles.gsheet   ← Tableau de bord équipe
+📁 Veille_Techno_2026/
+├── 📁 01_Raw/             ← Articles individuels (1 fichier = 1 article)
+│   └── article_AAAA-MM-JJ_ID.md
+├── 📁 02_Digest/          ← Synthèses hebdomadaires (1 fichier = 1 semaine)
+│   └── digest_semaine_XX_AAAA-MM-JJ.md
+├── 📁 03_Podcast/         ← Fichiers audio NotebookLM (.m4a)
+│   └── podcast_semaine_XX.m4a
+└── 📁 04_Reports/         ← Rapports mensuels (1 fichier = 1 mois)
+    └── rapport_mensuel_MOIS_AAAA.md
 ```
 
-### Structure d'un fichier article (Raw)
+### Structure d'un article (01_Raw)
 
 ```markdown
 ---
-date: 2026-04-18
-source: Le Monde Informatique
-titre: "Le cloud repatriation s'accélère en Europe"
+date: 2026-05-20
+source: Next - Flux Complet
+titre: "Titre de l'article"
 url: https://...
-tags: [FinOps, Cloud Repatriation, Souveraineté]
-score_pertinence: 9/10
-thematique: Souveraineté
+tags: []
 ---
 
 ## Résumé
 
-[Résumé automatique Make.com / extrait RSS]
-
-## Mots-clés identifiés
-
-FinOps, TCO, cloud repatriation, RGPD
+[Extrait automatique du flux RSS]
 
 ## Source originale
 
-[URL complète]
+https://...
+```
+
+### Structure d'un digest (02_Digest)
+
+```markdown
+# Digest Veille Technologique — Semaine XX
+**Période** : semaine du AAAA-MM-JJ
+**Total articles** : N
+
+## 💰 FinOps (N articles)
+## 🌿 Green IT (N articles)
+## 🔐 Souveraineté des données (N articles)
+## 📌 Autres (N articles)
 ```
 
 ---
 
-## 8. Automatisation Slack
+## 7. Communication Slack
 
-### Canaux requis
-
-| Canal | Usage | Fréquence |
+| Canal | Usage | Déclencheur |
 |---|---|---|
-| `#veille-critique` | Alertes prioritaires (score ≥ 8) | Temps réel |
-| `#veille-hebdo` | Digest de la semaine | Lundi 08h00 |
-| `#veille-podcast` | Lien vers le podcast audio | Vendredi 17h00 |
-
-### Format message Slack — Alerte critique
-
-```
-🚨 *VEILLE CRITIQUE — FinOps*
-
-*[Titre de l'article]*
-📰 Source : Le Monde Informatique
-🏷️ Tags : #FinOps #TCO #CloudRepatriation
-📅 Date : 18 avril 2026
-
-> Résumé : [Extrait automatique du flux RSS]
-
-🔗 Lire l'article : https://...
-📁 Archivé dans : Google Drive /Raw/04-avril/
-```
-
-### Format message Slack — Digest hebdomadaire
-
-```
-📊 *DIGEST VEILLE — Semaine 16 (14-18 avril 2026)*
-
-*Top 5 articles de la semaine :*
-
-1. 📈 [FinOps] Titre article 1 — source
-2. 🌿 [Green IT] Titre article 2 — source
-3. 🔐 [Souveraineté] Titre article 3 — source
-4. ☁️ [Cloud] Titre article 4 — source
-5. 💡 [Hybride] Titre article 5 — source
-
-📁 Digest complet : [lien Google Drive]
-🎙️ Podcast de la semaine : [lien audio]
-
-_Généré automatiquement par le système de veille EPSI_
-```
+| `#veille-critique` | Alertes articles prioritaires | Workflow 1 — temps réel |
+| `#veille-hebdo` | Digest de la semaine + action NotebookLM | Workflow 2 — lundi 08h |
+| `#veille-podcast` | Lien vers le podcast audio | Workflow 3 — à la détection |
 
 ---
 
-## 9. Production du podcast avec NotebookLM
+## 8. Production du podcast — NotebookLM
 
-Voir le guide détaillé : [docs/notebooklm_podcast.md](docs/notebooklm_podcast.md)
+NotebookLM ne dispose pas d'API publique. La production du podcast est **semi-automatisée** :
 
-### Principe
+| Étape | Responsable | Durée |
+|---|---|---|
+| Création du digest | n8n (automatique) | 0 min |
+| Notification Slack | n8n (automatique) | 0 min |
+| Ouverture NotebookLM + ajout source | Équipe (manuel) | 2 min |
+| Génération Audio Overview | NotebookLM (automatique) | ~10 min |
+| Téléchargement + dépôt dans /03_Podcast/ | Équipe (manuel) | 2 min |
+| Notification Slack #veille-podcast | n8n (automatique) | 0 min |
 
-**NotebookLM** (Google) propose une fonctionnalité **Audio Overview** qui génère automatiquement un podcast de style conversation entre deux présentateurs IA à partir de sources textuelles fournies. Ce podcast synthétise les points clés des sources avec un ton naturel et pédagogique.
-
-### Workflow de production (hebdomadaire)
-
-```
-[Vendredi 16h00] Make.com déclenche la génération du digest hebdo
-        │
-        ▼
-Google Drive : digest_semaine_XX.md créé
-        │
-        ▼
-[Vendredi 16h15] Make.com upload le digest dans NotebookLM
-        │         via Google Drive API / partage de lien
-        ▼
-NotebookLM : Audio Overview généré (~10-15 minutes de traitement)
-        │
-        ▼
-Téléchargement du fichier MP3 généré
-        │
-        ▼
-Google Drive : /03_Podcast/podcast_semaine_XX.mp3 sauvegardé
-        │
-        ▼
-[Vendredi 17h00] Slack #veille-podcast : lien partagé
-```
-
-### Contenu type d'un podcast (15-20 min)
-
-```
-Segment 1 — Introduction (2 min)
-  "Cette semaine dans la veille EPSI, nous avons relevé X articles..."
-
-Segment 2 — FinOps (5 min)
-  Synthèse des actualités TCO, cloud costs, repatriation
-
-Segment 3 — Green IT (4 min)
-  Bilan carbone numérique, nouvelles réglementations
-
-Segment 4 — Souveraineté des données (4 min)
-  RGPD, Cloud Act, directives européennes
-
-Segment 5 — Tendance de la semaine (3 min)
-  Article le plus impactant + recommandation équipe
-```
+**Total intervention humaine : ~4 minutes par semaine.**
 
 ### Paramétrage NotebookLM
 
-1. Créer un **notebook dédié** : `Veille EPSI 2026`
-2. Configurer les sources permanentes :
-   - Glossaire FinOps (uploadé une fois)
-   - Glossaire Green IT
-   - Contexte du projet (problematique.md)
-3. Chaque semaine : ajouter le digest comme **source temporaire**
-4. Lancer **Audio Overview** avec le prompt de contexte :
+1. Notebook dédié : `Veille EPSI 2026`
+2. Sources permanentes : glossaires FinOps, Green IT, Souveraineté
+3. Source hebdomadaire : `digest_semaine_XX.md` depuis Google Drive
+4. Prompt Audio Overview :
 
 ```
-Génère un podcast de veille technologique en français pour une équipe 
-d'étudiants en Master EPSI. Les thèmes sont FinOps, Green IT et 
-Souveraineté des données. Ton professionnel mais accessible. 
-Durée cible : 15 minutes. Structure : intro, 3 segments thématiques, 
-tendance de la semaine.
-```
-
-### Limites actuelles et évolutions
-
-| Aspect | Situation actuelle | Évolution prévue |
-|---|---|---|
-| Déclenchement | Manuel (UI NotebookLM) | API NotebookLM (bêta annoncée) |
-| Langue | Principalement anglais | Support français en amélioration |
-| Format | MP3 téléchargeable | Lien de partage direct |
-| Durée | 15-20 min générées | Configurable via prompt |
-
----
-
-## 10. Workflow opérationnel
-
-### Cadence
-
-| Fréquence | Action | Responsable | Outil |
-|---|---|---|---|
-| Temps réel | Alertes critiques | Make.com | → Slack #veille-critique |
-| Toutes les 2h | Collecte MiniFlux | Make.com | → Google Drive /Raw/ |
-| Lundi 08h00 | Digest hebdomadaire | Make.com | → Google Drive /Digest/ |
-| Vendredi 16h00 | Génération podcast | Make.com + NotebookLM | → Google Drive /Podcast/ |
-| Vendredi 17h00 | Partage podcast | Make.com | → Slack #veille-podcast |
-| 1er du mois | Rapport mensuel | Équipe | → Google Drive /Reports/ |
-
-### Routine d'équipe
-
-```bash
-# 1. Consultation des alertes critiques
-→ Slack #veille-critique (temps réel)
-
-# 2. Revue du digest hebdomadaire
-→ Slack #veille-hebdo (lundi matin)
-→ Google Drive /Digest/ pour le document complet
-
-# 3. Écoute du podcast
-→ Slack #veille-podcast (vendredi soir)
-→ Google Drive /Podcast/ pour téléchargement
-
-# 4. Contribution au rapport mensuel
-→ Google Drive /Reports/ (début de mois)
-→ PR GitHub sur le dépôt veille_techno_2026
+Génère un podcast de veille technologique en français pour une équipe
+d'étudiants en Master EPSI. Thèmes : FinOps, Green IT, Souveraineté
+des données. Ton professionnel mais accessible.
+Structure : introduction, 3 segments thématiques, tendance de la semaine.
 ```
 
 ---
 
-## 11. Comparatif v1 vs v2
+## 9. Comparatif v1 vs v2
 
 | Critère | Version 1 (SaaS) | Version 2 (POC Open Source) |
 |---|---|---|
-| **Collecte** | Feedly + Google Alerts + Talkwalker | MiniFlux (self-hosted) |
-| **Automatisation** | Make.com + Zapier | Make.com uniquement |
-| **Stockage** | Notion + Google Drive | Google Drive uniquement |
-| **Communication** | Slack + Microsoft Teams | Slack uniquement |
-| **Coût mensuel estimé** | ~80-150€ | ~5-20€ (hébergement VPS) |
-| **Souveraineté données** | Partielle (données chez Feedly/Notion) | Améliorée (MiniFlux self-hosted) |
-| **RGPD** | Dépend des CGU tiers | Contrôle total sur MiniFlux |
-| **Podcast audio** | Non | Oui (NotebookLM) |
-| **Complexité déploiement** | Faible (tout SaaS) | Moyenne (Docker requis) |
-| **Maintenance** | Aucune | Mise à jour Docker périodique |
-| **Scalabilité** | Illimitée (SaaS) | Limitée au VPS |
+| **Collecte** | Feedly + Google Alerts | Miniflux self-hosted |
+| **Automatisation** | Make.com + Zapier | **n8n self-hosted** |
+| **Stockage** | Notion + Google Drive | Google Drive |
+| **Communication** | Slack + Teams | Slack |
+| **Coût mensuel** | ~80–150€ | **0€** (infra existante) |
+| **Souveraineté données** | Partielle | **Totale** (VM on-premise) |
+| **RGPD** | Dépend des CGU tiers | **Contrôle total** |
+| **Podcast audio** | Non | **Oui** (NotebookLM) |
+| **Complexité déploiement** | Faible | Moyenne |
+| **Vendor lock-in** | Fort | **Nul** |
 
 ---
 
-## 12. KPIs et métriques
+## 10. KPIs et métriques
 
-| Métrique | Cible | Mesure |
+| Métrique | Cible | Outil de mesure |
 |---|---|---|
-| Sources surveillées | ≥ 50 flux RSS | MiniFlux Dashboard |
-| Articles collectés/semaine | 20-30 | Google Sheets suivi |
-| Articles analysés/semaine | 5-10 | Google Sheets suivi |
-| Alertes critiques/semaine | 2-5 | Slack analytics |
-| Podcast généré/semaine | 1 | Google Drive /Podcast/ |
-| Temps de réaction (alerte critique) | < 2h | Make.com logs |
-| Disponibilité MiniFlux | > 99% | Monitoring Docker |
-| Coût infrastructure | < 20€/mois | Facture VPS |
+| Sources RSS actives | ≥ 10 flux | Miniflux Dashboard |
+| Articles collectés / semaine | 50–100 | n8n logs |
+| Articles catégorisés / semaine | ≥ 15 | Digest hebdomadaire |
+| Digest généré / semaine | 1 | Google Drive /02_Digest/ |
+| Podcast produit / semaine | 1 | Google Drive /03_Podcast/ |
+| Alertes Slack critiques / semaine | 2–10 | Slack analytics |
+| Disponibilité Miniflux | > 99% | systemd status |
+| Coût infrastructure | 0€ | — |
 
 ---
 
-## 13. Structure du dépôt
+## 11. Structure du dépôt
 
 ```
 veille_techno_2026/
-├── README.md                    ← Version 1 (Stack SaaS)
-├── README_v2_POC.md             ← Ce fichier (Version 2 POC)
+├── README.md                      ← Version 1 (Stack SaaS)
+├── README_v2_POC.md               ← Ce fichier (Version 2 POC)
 │
 ├── config/
-│   ├── alerts_setup.md          ← Configuration Google Alerts (v1)
-│   ├── feedly_opml.xml          ← Export Feedly (v1)
-│   ├── make_scenario.json       ← Blueprint Make.com v1
-│   ├── make_scenario_v2.json    ← Blueprint Make.com v2 (POC)
-│   └── miniflux_config.md       ← Guide déploiement MiniFlux
+│   ├── miniflux_config.md         ← Guide déploiement Miniflux (Debian natif)
+│   ├── n8n_workflows.md           ← Documentation des 3 workflows n8n
+│   └── feedly_opml.xml            ← Export OPML des flux RSS
 │
 ├── docs/
-│   ├── problematique.md         ← Contexte stratégique
-│   ├── sources.md               ← Cartographie des sources
-│   ├── kpi_metrics.md           ← Indicateurs de performance
-│   ├── poc_architecture.md      ← Schéma infrastructure v2
-│   └── notebooklm_podcast.md   ← Guide production podcast
+│   ├── poc_architecture.md        ← Schémas d'infrastructure (Mermaid)
+│   ├── sources.md                 ← Cartographie des sources RSS
+│   ├── kpi_metrics.md             ← Indicateurs de performance
+│   ├── notebooklm_podcast.md      ← Guide production podcast
+│   └── problematique.md           ← Contexte stratégique
 │
 ├── templates/
-│   ├── monthly_report.md        ← Template rapport mensuel
-│   └── decision_matrix.md       ← Matrice Cloud vs On-Prem
+│   ├── monthly_report.md          ← Template rapport mensuel
+│   └── decision_matrix.md         ← Matrice Cloud vs On-Prem
 │
 └── reports/
     └── 2026/
@@ -533,32 +328,41 @@ veille_techno_2026/
 
 ---
 
-## 14. Feuille de route
+## 12. Feuille de route
 
-### Phase 1 — Déploiement infrastructure (Semaine 1-2)
-- [ ] Déployer MiniFlux sur VPS ou Docker local
-- [ ] Configurer les flux RSS (≥ 30 sources)
-- [ ] Obtenir la clé API MiniFlux
-- [ ] Créer la structure Google Drive
+### ✅ Phase 1 — Infrastructure (réalisée)
 
-### Phase 2 — Automatisation Make.com (Semaine 2-3)
-- [ ] Importer le scénario `make_scenario_v2.json`
-- [ ] Configurer les connexions Google Drive + Slack
-- [ ] Tester le pipeline de collecte end-to-end
-- [ ] Valider les filtres de mots-clés
+- [x] VM Proxmox Debian 12 provisionnée
+- [x] Miniflux déployé (binaire natif, service systemd)
+- [x] PostgreSQL 15 configuré
+- [x] Nginx reverse proxy configuré
+- [x] n8n déployé (npm, service systemd)
+- [x] Flux RSS configurés (10+ sources)
 
-### Phase 3 — Podcast NotebookLM (Semaine 3-4)
-- [ ] Créer le notebook NotebookLM dédié
-- [ ] Uploader les sources contextuelles permanentes
-- [ ] Tester la génération Audio Overview
-- [ ] Automatiser la distribution Slack
+### ✅ Phase 2 — Automatisation (réalisée)
 
-### Phase 4 — Validation et rapport (Semaine 4)
-- [ ] Mesurer les KPIs sur 2 semaines
-- [ ] Rédiger le rapport comparatif v1 vs v2
-- [ ] Présentation équipe + recommandations
+- [x] Workflow 1 : collecte toutes les 2h → Google Drive /01_Raw/
+- [x] Workflow 2 : digest hebdomadaire → Google Drive /02_Digest/
+- [x] Workflow 3 : notification podcast → Slack #veille-podcast
+- [x] Filtrage par mots-clés (FR + EN)
+- [x] Notifications Slack (3 canaux)
+- [x] Marquage articles lus dans Miniflux
+
+### ✅ Phase 3 — Podcast (réalisée)
+
+- [x] Notebook NotebookLM créé
+- [x] Premier podcast généré depuis digest_semaine_21
+- [x] Fichier .m4a déposé dans /03_Podcast/
+- [x] Notification Slack automatique
+
+### 🔧 Phase 4 — Optimisation (en cours)
+
+- [ ] Enrichissement des flux RSS (sources spécialisées FinOps)
+- [ ] Activation "Fetch original content" sur tous les flux
+- [ ] Rapport mensuel automatisé (04_Reports)
+- [ ] Sauvegarde automatique PostgreSQL
 
 ---
 
-*Documentation générée pour le projet de veille technologique — Master EPSI 2025-2026*  
-*Stack : MiniFlux · Make.com · Google Drive · Slack · NotebookLM*
+*Documentation rédigée pour le projet de veille technologique — Master EPSI 2025-2026*  
+*Infrastructure : VM Proxmox (Debian 12) · Miniflux · n8n · Google Drive · Slack · NotebookLM*
